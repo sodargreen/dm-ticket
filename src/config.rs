@@ -16,11 +16,21 @@ pub struct Ticket {
     // 票挡序号
     pub grade: usize,
 
+    // 优先购时长
     #[serde(default = "default_priority_purchase_time")]
     pub priority_purchase_time: i64,
 
     // 捡漏配置
     pub pick_up_leaks: PickUpLeaks,
+
+    // 实名人选择
+    #[serde(default = "default_real_names")]
+    pub real_names: Vec<usize>,
+}
+
+// 实名人, 默认自动选择前ticket->num位。
+fn default_real_names() -> Vec<usize> {
+    vec![]
 }
 
 // 优先购的时长是多久, 单位分钟
@@ -80,6 +90,15 @@ pub struct PickUpLeaks {
     // 捡漏票数
     #[serde(default = "default_pick_up_leaks_num")]
     pub num: usize,
+
+    // 进入捡漏模式的宽限期
+    #[serde(default = "default_grace_period_minutes")]
+    pub grace_period_minutes: i64,
+}
+
+// 进入捡漏模式的宽限期
+fn default_grace_period_minutes() -> i64 {
+    10
 }
 
 // 捡漏轮询间隔, 默认1000毫秒

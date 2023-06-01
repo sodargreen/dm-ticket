@@ -60,7 +60,13 @@ async fn main() -> Result<()> {
 
     join_all(handlers).await;
 
-    warn!("\n\n如遇到错误:[哎哟喂,被挤爆啦,请稍后重试], 就不要试了, 也不要提Issue! 请先看看README/Issue吧!!!\n\n\n");
+    println!("\n\n\n如遇到错误:[哎哟喂,被挤爆啦,请稍后重试], 请不要再重试, 请先检查:
+            \t1.是否使用了大厂服务器?
+            \t2.cookies是否复制完整?
+            \t3.是否频繁运行程序导致触发了频繁验证? 请重新获取cookie之后再尝试!
+            \t4.ticket.retry_times不宜设置过大。
+            \t5.捡漏轮询间隔(pick_up_leaks.interval)不宜设置过小, 轮询次数(pick_up_leaks.times)不宜设置过大!
+            \n\n\n");
 
     Ok(())
 }

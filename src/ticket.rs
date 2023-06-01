@@ -6,6 +6,7 @@ use std::{
 use crate::{
     clients::dm::DmClient,
     config::Account,
+    error::DmApiError,
     models::{
         order::{OrderForm, OrderInfo, OrderParams, SubmitOrderParams},
         perform::{PerformForm, PerformInfo, PerformParams},
@@ -229,10 +230,16 @@ impl DmTicket {
                 data
             }
             Err(e) => {
-                info!("生成订单失败, {}", e);
-                return Ok(false);
+                info!("生成订单失败, {}", e.to_string());
+                if e.to_string().contains(&DmApiError::SystemBusy.to_string()) {
+                    return Err(anyhow!(DmApiError::SystemBusy));
+                }
+                return Err(e);
             }
         };
+
+        let wait_for_submit_time = self.account.wait_for_submit_time;
+        tokio::time::sleep(Duration::from_millis(wait_for_submit_time)).await;
 
         let res = self.submit_order(order_info).await?;
 
@@ -279,10 +286,22 @@ impl DmTicket {
         let retry_times = self.account.retry_times;
         let retry_interval = self.account.retry_interval;
         for _ in 0..retry_times {
-            if let Ok(res) = self.buy(item_id, sku_id, buy_num).await {
-                if res {
-                    // 抢购成功, 退出
-                    return Ok(true);
+            match self.buy(item_id, sku_id, buy_num).await {
+                Ok(res) => {
+                    if res {
+                        return Ok(true);
+                    }
+                }
+                Err(e) => {
+                    // B-00203-200-034::您选购的商品信息已过期，请重新查询
+                    if e.to_string()
+                        .contains(&DmApiError::ProductEpired.to_string())
+                    {
+                        return Err(e);
+                    }
+                    if e.to_string().contains(&DmApiError::SystemBusy.to_string()) {
+                        return Err(e);
+                    }
                 }
             }
             // 重试间隔
@@ -293,6 +312,7 @@ impl DmTicket {
 
     // 程序入口
     pub async fn run(&self) -> Result<()> {
+        info!("正在检查用户信息...");
         let user_info = match self.get_user_info().await {
             Ok(info) => info,
             Err(e) => {
@@ -311,7 +331,13 @@ impl DmTicket {
         let priority_purchase_time = self.account.ticket.priority_purchase_time;
 
         info!("正在获取演唱会信息...");
-        let ticket_info = self.get_ticket_info(ticket_id.clone()).await?;
+        let ticket_info = match self.get_ticket_info(ticket_id.clone()).await {
+            Ok(info) => info,
+            Err(e) => {
+                info!("获取演唱会信息失败, {:?}", e);
+                return Err(e);
+            }
+        };
 
         let ticket_name = ticket_info
             .detail_view_component_map
@@ -373,7 +399,19 @@ impl DmTicket {
 
         match current_timestamp > start_timestamp {
             true => {
-                let _ = self.buy_it_now(&item_id, &sku_id).await;
+                if let Err(e) = self.buy_it_now(&item_id, &sku_id).await {
+                    if e.to_string()
+                        .contains(&DmApiError::ProductEpired.to_string())
+                    {
+                        let grace_period_millis =
+                            self.account.ticket.pick_up_leaks.grace_period_minutes * 60 * 1000;
+                        if (current_timestamp - start_timestamp) > grace_period_millis {
+                            return Ok(());
+                        }
+                        info!("商品已售空, 去捡漏...\n");
+                        return self.pick_up_leaks(ticket_id, perform_id).await;
+                    }
+                }
             }
             false => {
                 let res = self.wait_for_buy(start_timestamp, &item_id, &sku_id).await;
@@ -398,7 +436,7 @@ impl DmTicket {
                         }
                     }
                 }
-                info!("未能抢到票, 开启捡漏模式...");
+                info!("\t未能抢到票, 去捡漏...");
                 self.pick_up_leaks(ticket_id, perform_id).await?;
             }
         };
@@ -437,7 +475,7 @@ impl DmTicket {
                     }else{
                         let (hours, minutes, seconds) = self.ms_to_hms(time_left_millis);
                         print!("\r\t开抢倒计时:{}小时:{}分钟:{:.3}秒\t", hours, minutes, seconds);
-                        let _ =io::stdout().flush();
+                        let _ = io::stdout().flush();
                     }
 
                 }
@@ -452,7 +490,10 @@ impl DmTicket {
     // 轮询捡漏
     pub async fn pick_up_leaks(&self, ticket_id: String, perform_id: String) -> Result<()> {
         let pick_up_leaks_times = self.account.ticket.pick_up_leaks.times;
-        let pick_up_leaks_interval = self.account.ticket.pick_up_leaks.interval;
+        let mut pick_up_leaks_interval = self.account.ticket.pick_up_leaks.interval;
+        if pick_up_leaks_interval < 1000 {
+            pick_up_leaks_interval = 1000;
+        }
         let pick_up_leaks_grades = self.account.ticket.pick_up_leaks.grades.clone();
         let mut pick_up_leaks_num = self.account.ticket.pick_up_leaks.num;
         if pick_up_leaks_num == 0 {
@@ -460,7 +501,7 @@ impl DmTicket {
         }
 
         for i in 0..pick_up_leaks_times {
-            info!("第{}次查询库存...", i + 1);
+            print!("\r\t第{}次查询库存, ", i + 1);
             if let Ok(perform_info) = self.get_perform_info(&ticket_id, &perform_id).await {
                 for idx in 0..perform_info.perform.sku_list.len() {
                     let sku = &perform_info.perform.sku_list[idx];
@@ -470,6 +511,7 @@ impl DmTicket {
                         && (pick_up_leaks_grades.is_empty()
                             || pick_up_leaks_grades.contains(&grade_idx))
                     {
+                        print!("有余票...");
                         info!("票档:{}, 有库存, 去购买...", sku.price_name);
                         if let Ok(res) = self
                             .multiple_buy_attempts(
@@ -487,6 +529,8 @@ impl DmTicket {
                     }
                 }
             };
+            print!("无余票...");
+            let _ = io::stdout().flush();
             tokio::time::sleep(Duration::from_millis(pick_up_leaks_interval)).await;
         }
 

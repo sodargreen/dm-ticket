@@ -15,38 +15,10 @@
 - 所有直接或间接使用本项目的个人和组织，应24小时内完成学习和研究，并及时删除本项目中的所有内容。如对本项目的功能有需求，应自行开发相关功能。
 - 本项目保留随时对免责声明进行补充或更改的权利，直接或间接使用本项目内容的个人或组织，视为接受本项目的特别声明。
 
-## 学习项目
-
-- [Rust官网](https://www.rust-lang.org/)
-- [Rust字节镜像源](https://rsproxy.cn/)
-- [Rust语言圣经](https://course.rs/about-book.html)
-- [Rust中文社区](https://rustcc.cn/)
-- [Rust环境安装教程](https://course.rs/first-try/installation.html)
-
-**请确保您已成功安装Rust。**
-
-1. 先使用`docker-compose up -d`启动token-server, `docker-compose.yml`如下:
-```
-version: "3"
-  service:
-    token-server:
-      image: classmatelin/alitoken-server:v0.1.1
-      restart: always
-      container_name: token-server
-      environment:
-        RUST_LOG: "info"
-      ports:
-        - "8080:8080"
-```
-
-2. 获取项目: `git clone https://github.com/ClassmateLin/dm-ticket.git`
-
-3. 复制配置: `cd dm-ticket && cp config.yaml.example config.yaml`
-
-4. 运行项目: `cargo run --bin dm-ticket`
+## 如何运行?
 
 
-## Docker使用说明
+### 使用docker
 
 - 下载docker-compose配置文件: `wget https://github.com/ClassmateLin/dm-ticket/releases/download/v0.1.3/dm-ticket.zip`
 - 解压zip: `unzip dm-ticket.zip && cd dm-ticket`
@@ -59,11 +31,30 @@ version: "3"
   - sample 2:
     ![run2.png](./images/run2.png)
 
-
-## Docker命令列表
-
+#### 命令列表
 - 自动购票: `docker exec -it dm-ticket dm-ticket`
 - 扫码登录: `docker exec -it dm-ticket dm-login`
+
+### 使用Rust
+
+- [Rust官网](https://www.rust-lang.org/)
+- [Rust字节镜像源](https://rsproxy.cn/)
+- [Rust语言圣经](https://course.rs/about-book.html)
+- [Rust中文社区](https://rustcc.cn/)
+- [Rust环境安装教程](https://course.rs/first-try/installation.html)
+
+**请确保您已成功安装Rust。**
+
+1. 获取项目: `git clone https://github.com/ClassmateLin/dm-ticket.git`
+
+2. 复制配置: `cd dm-ticket && cp config/config.yaml.example cpnfig/config.yaml`
+
+3. 运行依赖容器: `docker-compose -f docker-compose.dev.yml up  -d`
+
+4. 运行项目: `cargo run --bin dm-ticket`
+
+
+
 
     
 ## 常见问题
@@ -108,7 +99,11 @@ version: "3"
 
 ## 其他项目
 
-[zzdns](https://github.com/ClassmateLin/zzdns): 使用Rust构建的一款快速本地 DNS 解析器，用于提供更好的网络体验。支持Docker一键部署。
-[cfdns](https://github.com/ClassmateLin/cfdns): 一个本地DNS服务器, 用于测试 Cloudflare CDN 延迟和速度，获取最快 IP (IPv4 )。支持docker一键部署。
-[rust-scripts](https://github.com/ClassmateLin/rust-scripts): Rust写的一些小工具。
-[...](https://github.com/ClassmateLin?tab=repositories&q=&type=&language=&sort=) 
+- [zzdns](https://github.com/ClassmateLin/zzdns): 使用Rust构建的一款快速本地 DNS 解析器，用于提供更好的网络体验。支持Docker一键部署。
+- [cfdns](https://github.com/ClassmateLin/cfdns): 一个本地DNS服务器, 用于测试 Cloudflare CDN 延迟和速度，获取最快 IP (IPv4 )。支持docker一键部署。
+- [rust-scripts](https://github.com/ClassmateLin/rust-scripts): Rust写的一些小工具。
+- [...](https://github.com/ClassmateLin?tab=repositories&q=&type=&language=&sort=) 
+
+
+
+**本人是PHP两年半练习生, Rust学了点皮毛, 寻一份Rust打杂的工作。。。**
