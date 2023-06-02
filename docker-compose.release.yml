@@ -6,7 +6,7 @@ networks:
     ipam:
       driver: default
       config:
-      - subnet: 172.88.0.0/24
+      - subnet: 172.88.0.0/16
         gateway: 172.88.0.1
 
     
@@ -14,7 +14,7 @@ networks:
 services:
   # https://github.com/ClassmateLin/dm-ticket
   dm-ticket:
-    image: classmatelin/dm-ticket:v0.1.4
+    image: classmatelin/dm-ticket:v0.1.5
     container_name: dm-ticket
     restart: always
     privileged: true
@@ -25,7 +25,6 @@ services:
     depends_on:
       - token-server
       - zzdns
-    dns: 172.88.0.3
     environment:
       RUST_LOG: "INFO"
       TOKEN_SERVER_URL: "http://172.88.0.2:8080"
@@ -48,7 +47,7 @@ services:
     #   - "53:53/udp"
 
   token-server:
-    image: classmatelin/alitoken-server:v0.1.1
+    image: classmatelin/alitoken-server:latest
     restart: always
     container_name: token-server
     networks:

@@ -30,6 +30,7 @@ jobs:
         mkdir -p $stage/config
         cp config/config.yaml.example $stage/config/config.yaml
         cp -r resoureces/zzdns $stage/
+        cp -r resoureces/README.md $stage/
         cp docker-compose.release.yml $stage/docker-compose.yml
         cd $stage
         RELEASE_VERSION=${GITHUB_REF#refs/tags/}

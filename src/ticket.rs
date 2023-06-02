@@ -134,9 +134,20 @@ impl DmTicket {
                         warn!("实名观演人小于实际购票数量, 请先添加实名观演人!");
                         num = viewer_list.as_array().unwrap().len();
                     }
-                    for i in 0..num {
-                        item["fields"]["viewerList"][i]["isUsed"] = true.into();
+                    if self.account.ticket.real_names.is_empty() {
+                        info!("未配置实名观演人, 默认选择前{}位观演人...", self.account.ticket.num);
+                        for i in 0..num {
+                            item["fields"]["viewerList"][i]["isUsed"] = true.into();
+                        }
+                    }else{
+                        for i in 0..item["fields"]["viewerList"].as_array().unwrap_or(&Vec::new()).len() {
+                            let idx = i + 1;
+                            if self.account.ticket.real_names.contains(&idx) {
+                                item["fields"]["viewerList"][i]["isUsed"] = true.into();
+                            }
+                        }
                     }
+                    
                 }
                 order_data[key] = item;
             } else {
