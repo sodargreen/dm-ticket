@@ -4,9 +4,9 @@ version: '3'
 services:
   token-server:
     image: classmatelin/alitoken-server:v0.1.1
-    restart: always
-    container_name: token-server
+    restart: on-failure
+    container_name: token-server-manual
     environment:
-      RUST_LOG: "info"
+      RUST_LOG: "manual-info"
     ports:
       - "8080:8080"

@@ -1,4 +1,5 @@
 use log::error;
+use std::env;
 use schemars::schema::RootSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
@@ -177,6 +178,14 @@ where
         }
     }
 }
+
+
+
+fn main() {
+    let args: Vec<String> = env::args().collect();
+    println!("Arguments: {:?}", args);
+}
+
 
 pub fn load_global_config() -> Option<Config> {
     load_config("./config/config.yaml")

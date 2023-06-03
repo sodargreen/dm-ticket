@@ -17,11 +17,12 @@ use crate::{
 };
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Local};
-use log::{debug, error, info, warn};
+use log::{debug, error, info};
 use serde_json::json;
 use tokio::signal;
 
 const SUCCESS_FLAG: &str = "SUCCESS::调用成功";
+const RETRY_INTERVAL_MS: u64 = 100; // 定义常量，表示重试间隔时间（以毫秒为单位）
 
 pub struct DmTicket {
     pub client: DmClient,
@@ -123,31 +124,33 @@ impl DmTicket {
         for key in order_info.linkage.input.iter() {
             if key.starts_with("dmViewer_") {
                 let mut item = order_info.data[key].clone();
-                let mut num = self.account.ticket.num;
+                let num = self.account.ticket.num;
 
                 let viewer_list = item["fields"]["viewerList"].clone();
 
                 // 需选择实名观演人
                 if viewer_list.is_array() && !viewer_list.as_array().unwrap().is_empty() {
                     // 实名观演人比购票数量少
-                    if viewer_list.as_array().unwrap().len() < num {
-                        warn!("实名观演人小于实际购票数量, 请先添加实名观演人!");
-                        num = viewer_list.as_array().unwrap().len();
+                    // if viewer_list.as_array().unwrap().len() < num {
+                    //     warn!("实名观演人小于实际购票数量, 请先添加实名观演人!");
+                    //     num = viewer_list.as_array().unwrap().len();
+                    // }
+                    for i in 0..num {
+                        item["fields"]["viewerList"][i]["isUsed"] = true.into();
+                    // if self.account.ticket.real_names.is_empty() {
+                    //     info!("未配置实名观演人, 默认选择前{}位观演人...", self.account.ticket.num);
+                    //     for i in 0..num {
+                    //         item["fields"]["viewerList"][i]["isUsed"] = true.into();
+                    //     }
+                    // }else{
+                    //     for i in 0..item["fields"]["viewerList"].as_array().unwrap_or(&Vec::new()).len() {
+                    //         let idx = i + 1;
+                    //         if self.account.ticket.real_names.contains(&idx) {
+                    //             item["fields"]["viewerList"][i]["isUsed"] = true.into();
+                    //         }
+                    //     }
+                    // }
                     }
-                    if self.account.ticket.real_names.is_empty() {
-                        info!("未配置实名观演人, 默认选择前{}位观演人...", self.account.ticket.num);
-                        for i in 0..num {
-                            item["fields"]["viewerList"][i]["isUsed"] = true.into();
-                        }
-                    }else{
-                        for i in 0..item["fields"]["viewerList"].as_array().unwrap_or(&Vec::new()).len() {
-                            let idx = i + 1;
-                            if self.account.ticket.real_names.contains(&idx) {
-                                item["fields"]["viewerList"][i]["isUsed"] = true.into();
-                            }
-                        }
-                    }
-                    
                 }
                 order_data[key] = item;
             } else {
@@ -295,8 +298,8 @@ impl DmTicket {
             None => self.account.ticket.num,
         };
         let retry_times = self.account.retry_times;
-        let retry_interval = self.account.retry_interval;
-        for _ in 0..retry_times {
+        // let retry_interval = self.account.retry_interval;
+        for attempt in 0..retry_times {
             match self.buy(item_id, sku_id, buy_num).await {
                 Ok(res) => {
                     if res {
@@ -315,6 +318,13 @@ impl DmTicket {
                     }
                 }
             }
+
+            // 根据奇偶次数等待不同的重试间隔时间
+            let retry_interval = if attempt % 2 == 0 {
+                RETRY_INTERVAL_MS
+            } else {
+                self.account.retry_interval
+            };
             // 重试间隔
             tokio::time::sleep(Duration::from_millis(retry_interval)).await;
         }
