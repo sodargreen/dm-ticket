@@ -181,12 +181,11 @@ where
 
 
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
-    println!("Arguments: {:?}", args);
-}
+
 
 
 pub fn load_global_config() -> Option<Config> {
-    load_config("./config/config.yaml")
+    let args: Vec<String> = env::args().collect();
+    let config_path = format!("./config/{}", &args[1]);
+    load_config(&config_path)
 }

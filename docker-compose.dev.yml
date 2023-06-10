@@ -5,7 +5,7 @@ services:
   token-server:
     image: classmatelin/alitoken-server:v0.1.1
     restart: on-failure
-    container_name: token-server-manual
+    container_name: token-server
     environment:
       RUST_LOG: "manual-info"
     ports:

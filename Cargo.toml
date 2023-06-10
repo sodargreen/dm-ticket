@@ -26,7 +26,7 @@ image = {version = "0.24.6"}
 rqrr = {version = "0.6.0"}
 rand={version="0.8.5"}
 thiserror={version="1.0.40"}
-
+regex = "1.5"
 
 [[bin]]
 name = "dm-login"

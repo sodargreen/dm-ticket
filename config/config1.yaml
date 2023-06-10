@@ -1,0 +1,22 @@
+accounts:
+- cookie: tfstk=cIkRBRfv8nIROCT338dcYPEz_9-cw2AY8_aGpYQ0p-mQvr1ccAD9Nvt7fPzJD;_m_h5_tk=64a0d5309ca3184492de05aeee2908f2_1686373822423;_m_h5_tk_enc=f9e0e8005e2dc8227212d8480b919ea3;destCity=%u5317%u4eac;XSRF-TOKEN=d843237f-5dc7-4c63-a48f-c368923f6882;user_id=91056119;h5token=d17a5abd2bd6456890e427d7a074439a_1_1;isg=BEhIJpwouOjbI9RsV43s4s8AGbBa8az7QmBFmAL5lEO23ehHqgF8i95fULWtSmTT;loginkey=d17a5abd2bd6456890e427d7a074439a_1_1;damai.cn_nickName=%E7%91%9E%E4%B8%83;_hvn_login=18;damai.cn_user=pBc7l9CqZ5cLNXgUVIYhX9Q89vfXuB/O18CfZpjfHaJsHRLUz0gHmnvQlz42FarG;csg=08ccded2;_tb_token_=e9d513b671636;damai_cn_user=pBc7l9CqZ5cLNXgUVIYhX9Q89vfXuB%2FO18CfZpjfHaJsHRLUz0gHmnvQlz42FarG;munb=3738196517;cookie2=1bca34ce88df17a695c1e5cf37fa15e8;damai.cn_user_new=pBc7l9CqZ5cLNXgUVIYhX9Q89vfXuB%2FO18CfZpjfHaJsHRLUz0gHmnvQlz42FarG;xlly_s=1;l=fB_aPHS4NKWqNiDEKOfaFurza77OSIRYYuPzaNbMi9fP9gCB5krPW1104hY6C3GVF6PeR37fwLl9BeYBc7Vonxv951xKbckmndLHR35..;t=570adb7d76b1855becf32347e4309c86;_samesite_flag_=true;
+  earliest_submit_time: 5
+  interval: 30
+  remark: test account
+  request_time: -1
+  retry_interval: 2900
+  retry_times: 5
+  ticket:
+    grade: 7
+    id: '704967827554'
+    num: 2
+    pick_up_leaks:
+      grace_period_minutes: 5
+      grades: []
+      interval: 2000
+      num: 0
+      times: 100
+    priority_purchase_time: 0
+    real_names: []
+    sessions: 3
+  wait_for_submit: 10

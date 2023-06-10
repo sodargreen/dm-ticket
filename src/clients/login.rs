@@ -140,7 +140,6 @@ impl LoginClient {
             HeaderValue::from_str(&format!("cookie2={};", cookie2))?,
         );
         let url = format!("{}&st={}", return_url, st);
-
         let client = reqwest::Client::builder()
             .default_headers(headers)
             .cookie_store(true)

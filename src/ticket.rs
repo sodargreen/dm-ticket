@@ -1,6 +1,8 @@
 use std::{
     io::{self, Write},
     time::{Duration, Instant},
+    process::Command,
+    env,
 };
 
 use crate::{
@@ -20,6 +22,7 @@ use chrono::{DateTime, Local};
 use log::{debug, error, info};
 use serde_json::json;
 use tokio::signal;
+
 
 const SUCCESS_FLAG: &str = "SUCCESS::调用成功";
 const RETRY_INTERVAL_MS: u64 = 100; // 定义常量，表示重试间隔时间（以毫秒为单位）
@@ -50,7 +53,7 @@ impl DmTicket {
         let url = "https://mtop.damai.cn/h5/mtop.damai.wireless.user.session.transform/1.0/";
         let params = GetUserInfoParams::build()?;
         let form = GetUserInfoForm::build()?;
-        let res = self.client.request(url, params, form).await?;
+        let res = self.client.request(url, params, form, 0).await?;
         if res.ret.contains(&SUCCESS_FLAG.to_string()) {
             let user_info_data = serde_json::from_value(res.data)?;
             Ok(user_info_data)
@@ -67,7 +70,7 @@ impl DmTicket {
 
         let data = TicketInfoForm::build(ticket_id)?;
 
-        let res = self.client.request(url, params, data).await?;
+        let res = self.client.request(url, params, data, 0).await?;
 
         match res.ret.contains(&SUCCESS_FLAG.to_string()) {
             true => {
@@ -90,6 +93,7 @@ impl DmTicket {
         item_id: &String,
         sku_id: &String,
         buy_num: usize,
+        attempt: usize,
     ) -> Result<OrderInfo> {
         let start = Instant::now();
 
@@ -99,7 +103,7 @@ impl DmTicket {
 
         let data = OrderForm::build(item_id, sku_id, buy_num)?;
 
-        let res = self.client.request(url, params, data).await?;
+        let res = self.client.request(url, params, data, attempt).await?;
 
         debug!("生成订单结果:{:?}, 花费时间:{:?}", res, start.elapsed());
 
@@ -204,7 +208,7 @@ impl DmTicket {
 
         let res = self
             .client
-            .request(url, submit_order_params, sumbit_order_data)
+            .request(url, submit_order_params, sumbit_order_data, 0)
             .await?;
 
         debug!("提交订单结果:{:?}, 花费时间:{:?}", res, start.elapsed());
@@ -225,7 +229,7 @@ impl DmTicket {
 
         let data = PerformForm::build(ticket_id, perform_id)?;
 
-        let res = self.client.request(url, params, data).await?;
+        let res = self.client.request(url, params, data, 0).await?;
 
         debug!("获取演出票档信息:{:?}, 花费时间:{:?}", res, start.elapsed());
 
@@ -235,10 +239,10 @@ impl DmTicket {
     }
 
     // 购买流程
-    pub async fn buy(&self, item_id: &String, sku_id: &String, buy_num: usize) -> Result<bool> {
-        let start = Instant::now();
+    pub async fn buy(&self, item_id: &String, sku_id: &String, buy_num: usize, attempt: usize) -> Result<bool> {
+        
 
-        let order_info = match self.build_order(item_id, sku_id, buy_num).await {
+        let order_info = match self.build_order(item_id, sku_id, buy_num, attempt).await {
             Ok(data) => {
                 info!("成功生成订单...");
                 data
@@ -260,16 +264,14 @@ impl DmTicket {
         match res.ret.contains(&SUCCESS_FLAG.to_string()) {
             true => {
                 info!(
-                    "提交订单成功, 请尽快前往手机APP付款,  此次抢购花费时间:{:?}",
-                    start.elapsed()
+                    "提交订单成功, 请尽快前往手机APP付款",
                 );
                 Ok(true)
             }
             false => {
                 info!(
-                    "提交订单失败, 原因:{}, 此次抢购花费时间:{:?}",
+                    "提交订单失败, 原因:{}",
                     res.ret[0],
-                    start.elapsed()
                 );
                 Ok(false)
             }
@@ -298,9 +300,11 @@ impl DmTicket {
             None => self.account.ticket.num,
         };
         let retry_times = self.account.retry_times;
-        // let retry_interval = self.account.retry_interval;
+        let mut _run_time: u64 = 0;
+        let mut min_time: u64 = 9999;
         for attempt in 0..retry_times {
-            match self.buy(item_id, sku_id, buy_num).await {
+            let start = Instant::now();
+            match self.buy(item_id, sku_id, buy_num, usize::from(attempt)).await {
                 Ok(res) => {
                     if res {
                         return Ok(true);
@@ -308,6 +312,7 @@ impl DmTicket {
                 }
                 Err(e) => {
                     // B-00203-200-034::您选购的商品信息已过期，请重新查询
+                    
                     if e.to_string()
                         .contains(&DmApiError::ProductEpired.to_string())
                     {
@@ -318,13 +323,19 @@ impl DmTicket {
                     }
                 }
             }
-
+            let elapsed = start.elapsed().as_millis() as u64;
+            _run_time += elapsed;
+            if elapsed < min_time {
+                min_time = elapsed;
+            }
             // 根据奇偶次数等待不同的重试间隔时间
             let retry_interval = if attempt % 2 == 0 {
                 RETRY_INTERVAL_MS
             } else {
-                self.account.retry_interval
+                (((attempt+1) / 2) as u64) * 5500 - _run_time - min_time
             };
+            _run_time += retry_interval;
+            info!("此{}次抢购花费时间:{:?} 等待{:?}",attempt, start.elapsed(), retry_interval);
             // 重试间隔
             tokio::time::sleep(Duration::from_millis(retry_interval)).await;
         }
@@ -431,6 +442,29 @@ impl DmTicket {
                         }
                         info!("商品已售空, 去捡漏...\n");
                         return self.pick_up_leaks(ticket_id, perform_id).await;
+                    }
+                    if e.to_string()
+                        .contains(&DmApiError::SystemBusy.to_string())
+                    {
+                        info!("cookie 失效\n");
+                        let args: Vec<String> = env::args().collect();
+                        println!("{:?}", args);
+                        let output = Command::new("python")
+                        .arg("../Automatic_ticket_purchase/Automatic_ticket_purchase.py")
+                        .arg("--login_id")
+                        .arg(args[1].clone())
+                        .output()
+                        .expect("Failed to execute Python script.");
+                
+                        if output.status.success() {
+                            let stdout = String::from_utf8_lossy(&output.stdout);
+                            println!("Python script executed successfully. Output:\n{}", stdout);
+                        } else {
+                            let stderr = String::from_utf8_lossy(&output.stderr);
+                            println!("Python script failed. Error:\n{}", stderr);
+                        }
+                        // self.buy_it_now(&item_id, &sku_id).await;
+                        return Ok(());
                     }
                 }
             }

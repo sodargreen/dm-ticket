@@ -7,6 +7,11 @@ use reqwest::{
     Client,
 };
 use serde_json::{json, Value};
+use std::fs::File;
+use std::io::{self, BufRead, BufReader};
+use regex::Regex;
+
+
 
 #[derive(Debug)]
 pub struct DmClient {
@@ -14,6 +19,7 @@ pub struct DmClient {
     pub token_client: TokenClient,
     pub token: DmToken,
     pub bx_token: String,
+    pub content: Vec<String>,
 }
 
 // 获取token
@@ -57,9 +63,29 @@ impl DmClient {
     pub async fn new(cookie: String) -> Result<Self> {
         let token_client = TokenClient::new()?;
 
-        let bx_token = token_client.get_bx_token().await?;
-
+        // let bx_token = token_client.get_bx_token().await?;
+        let bx_token = "G146C2A2D9BA7A13397838F85A22D954E1C1AC33BD3A4B0D426".into();
         let token = get_token(&cookie).await?;
+        let file = File::open("../dm-ticket/控制台.txt")?;
+        let reader = BufReader::new(file);
+    
+        let mut content: Vec<String> = Vec::new();
+    
+        let log_regex = Regex::new(r"\[Log\] (.+) \(dm\.vue, line \d+\)").unwrap();
+    
+        for line in reader.lines() {
+            if let Ok(line) = line {
+                if let Some(capture) = log_regex.captures(&line) {
+                    let captured_text = capture.get(1).unwrap().as_str().to_string();
+                    content.push(captured_text);
+                }
+            }
+        }
+    
+        // // 打印保存的文本内容
+        // for (index, _) in content.iter().enumerate() {
+        //     println!("{}: {}", index, content[index]);
+        // }
 
         let mut headers = HeaderMap::new();
 
@@ -89,11 +115,12 @@ impl DmClient {
             token,
             token_client,
             bx_token,
+            content,
         })
     }
 
     // 请求API
-    pub async fn request(&self, url: &str, mut params: Value, data: Value) -> Result<DmRes> {
+    pub async fn request(&self, url: &str, mut params: Value, data: Value, attempt:usize) -> Result<DmRes> {
         let s = format!(
             "{}&{}&{}&{}",
             self.token.token,
@@ -107,8 +134,8 @@ impl DmClient {
         params["sign"] = sign.into();
 
         params["bx-umidtoken"] = self.bx_token.clone().into();
-        params["bx-ua"] = self.token_client.get_bx_ua().await?.into();
-
+        params["bx-ua"] = "225!/680iizWooizUDt3LjLp6XUoIBX32cLHV3iF9v6Of0p73gpbvvuqJO/jJXaJNqdqMTy9XFLHMHwVpkYo/AW2AqEsV6xVz8KslT13KSt/Dgb7MSmHJy2RsAonLkWRAKfalP7EUHVO0fjrZIpCWVkeO8GejndEHCRIYqpWCEAHXjAEZpkKP39ULhl0+/poQzadDI74fodCbU4KjcI4+yYTbkZW8hulQE0dDMXhfidCbU4KjcI4oL3jDGHz1el9QEp59sKTrfZ0FU4KjcfhbTbc5pX4seoRuooS49fxMkKBoWlkP2IoyV4SbWNRAbCpku3GehXyS6LPb3SdGxfboLijDlH+fej9Qz0dMh6OGdAC5pnPx2knhxw/ytdM84aqWuiqygKIfvBLoFRf6r7neLWFgvNp84UWWu6vVw5LfO5CbU4KjxIhoL3qFl/+f4G0QHkmZJPL3DIAnNJ/VKhDn1aQK8Fx3vSwJAdtUANnAraVq7LmK40rxtZLlUlrXRC9xZSFlgsOwURC65GtQx13UpNPcfxmv16HnMTs2gwZ16lo6HaQ8HN60Xn+U+zhEhceEvhyolEENFAfXfr6PWqesjs1vUdNbKPn3ojmWLWzqGukuXked2em0wFs5nQGi4J5XiB09bRsrjzK+ENRYVuCo7ktHpgpEKzgxmEEaH5xlrxOMhYX1B7qpWbjpCIjVOHU6rK7XyX26cwweTF5ihPAidXAudT+SQ9EFqJ3pKw6j5HSkxpPGO0hSutQ6Q52auFuwM9oyYO0B/Nie6MkhmWt21ZfMn8W5gbonY/YsyEEIW5JyJ4do/siRCrQi+W+nY0CmXSKNx2OrXj78IK58i+j2NJllzjx//LEf3BTn+nXiZimVpT97ieFeAbpWdHMjVXL4k9mxfM6BGUB0sup1nR1JT6EjjHsfPOSDmG9kLzgi+HYyincOxt+o9ZWNrud0IMUl0sFWTrcauGEnbg9KdrwwQoFAVYvIP7D4N41yZ/nhqIiy7f6Tjk5FibO6s6CC5Rqeimlet/dmsCmKL/S9tlMnDPdAl5Sre0FaI2tVYWbvsq=".into();
+        // params["bx-ua"] = self.token_client.get_bx_ua().await?.into();
         let form = json!({
             "data": serde_json::to_string(&data)?,
         });
